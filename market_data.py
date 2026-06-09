@@ -45,7 +45,7 @@ class MarketData:
         forward = self.spot * np.exp(self.interest_rate * time_to_expiry)
         calls = option_chain.calls[["strike", "lastPrice", "bid", "ask"]]
         y = np.log(calls["strike"] / forward)
-        calls = calls.loc[ np.abs(y) <= 0.5 ] # Filtering out deep OTM and ITM options
+        calls = calls.loc[ np.abs(y) <= 0.4 ] # Filtering out deep OTM and ITM options
 
         calls["marketPrice"] = np.where(
             (calls["bid"] > 0) & (calls["ask"] > 0),
@@ -59,10 +59,6 @@ class MarketData:
         calls = calls[calls["marketPrice"] > MIN_PRICE] # Filtering cheap deep OTM options for SPX
         calls = calls.dropna(subset=["marketPrice"])
         calls.reset_index(drop=True, inplace=True)
-
-        # if len(calls) > 15:
-        #     indices = np.linspace(0, len(calls) - 1, 15, dtype=int)
-        #     calls = calls.iloc[indices]
 
         return calls[["strike", "timeToExpiry", "marketPrice"]]
 
@@ -93,7 +89,3 @@ class MarketData:
         calls["logMoneyness"] = np.log(calls["strike"] / calls["F"])
 
         return calls
-
-
-data = MarketData("^SPX")
-print(data.calls())
