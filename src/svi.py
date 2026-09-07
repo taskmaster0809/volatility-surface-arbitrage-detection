@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 from scipy.optimize import least_squares
 from scipy.stats import norm
 
-from market_data import MarketData
+from src.market_data import MarketData
 
 
 @dataclass
@@ -14,7 +15,7 @@ class SVIResult:
     rho: float
     m: float
     sigma: float
-    w: np.ndarray
+    w: np.ndarray | None
     T: float = None
     y: np.ndarray = None
 
@@ -45,7 +46,7 @@ class SVISlice:
     def d2w(y, b, m, sigma):
         return (b * sigma ** 2) / (((y - m) ** 2 + sigma ** 2) ** 1.5)
 
-    def fit(self, x0=(-0.5, 0, 0.1)):
+    def fit(self, x0=(-0.5, 0, 0.1)): # x0=(rho, m, sigma)
         def inner(rho, m, sigma):
             phi = self.phi(self.y, rho, m, sigma)
             x = np.column_stack([np.ones_like(phi), phi])
@@ -82,7 +83,10 @@ class SVISlice:
             d2w = SVISlice.d2w(y, b, m, sigma)
             return (1 - y * dw / (2 * w)) ** 2 - ((dw ** 2) / 4) * (1/w + 1/4) + d2w/2
 
-        y_grid = np.linspace(svi.y.min() - 0.1, svi.y.max() + 0.1, 1000)
+        if svi.y is None:
+            y_grid = np.linspace(-2, 2, 1000)
+        else:
+            y_grid = np.linspace(svi.y.min() - 0.1, svi.y.max() + 0.1, 1000)
 
         g_vec = g(y_grid, svi.a, svi.b, svi.rho, svi.m, svi.sigma)
         return np.all(g_vec >= 0), g_vec
@@ -95,7 +99,10 @@ class SVISlice:
         if svi1.T > svi2.T:
             svi1, svi2 = svi2, svi1
 
-        y_grid = np.linspace(min(svi1.y.min(), svi2.y.min()) - 0.1, max(svi1.y.max(), svi2.y.max()) + 0.1, 1000)
+        if svi1.y is None or svi2.y is None:
+            y_grid = np.linspace(-2, 2, 1000)
+        else:
+            y_grid = np.linspace(min(svi1.y.min(), svi2.y.min()) - 0.1, max(svi1.y.max(), svi2.y.max()) + 0.1, 1000)
 
         w1 = SVISlice.w(y_grid, svi1.a, svi1.b, svi1.rho, svi1.m, svi1.sigma)
         w2 = SVISlice.w(y_grid, svi2.a, svi2.b, svi2.rho, svi2.m, svi2.sigma)
@@ -104,8 +111,14 @@ class SVISlice:
 
 
 class SVISurface:
-    def __init__(self, market_data: MarketData):
-        self.data = market_data.calls()
+    def __init__(self, market_data: MarketData=None, calls_data: pd.DataFrame=None):
+        if market_data is None and calls_data is None:
+            raise ValueError("Both market_data and calls_data cannot be none")
+        elif calls_data is None:
+            self.data = market_data.calls()
+        else:
+            self.data = calls_data
+
         self.results = self.fit_surface()
 
     def fit_surface(self):
@@ -131,7 +144,7 @@ class SVISurface:
     def check_butterfly_all(self):
         is_butterfly_arbitrage = []
         for svi_result in self.results:
-            is_butterfly_arbitrage.append( (svi_result.T, SVISlice.check_butterfly(svi_result)) )
+            is_butterfly_arbitrage.append( (svi_result.T, *SVISlice.check_butterfly(svi_result)) )
 
         return is_butterfly_arbitrage
 
@@ -139,7 +152,7 @@ class SVISurface:
         is_calendar_arbitrage = []
         for index in range(len(self.results) - 1):
             is_calendar_arbitrage.append( (self.results[index].T,
-                                           SVISlice.check_calendar(self.results[index], self.results[index + 1])) )
+                                           *SVISlice.check_calendar(self.results[index], self.results[index + 1])) )
 
         return is_calendar_arbitrage
 
