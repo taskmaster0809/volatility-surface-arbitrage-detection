@@ -31,9 +31,9 @@ for i in range(n):
 
     row = i // cols + 1
     col = i % cols + 1
-    grid = np.linspace(svi_results[i].y.min()-0.01, svi_results[i].y.max()+0.01, 500)
-    w = SVISlice.w(grid, a, b, rho, m, sigma)
-    fig.add_scatter(x=grid, y=w, row=row, col=col, showlegend=False, line=dict(color="black"))
+    grid_y = np.linspace(svi_results[i].y.min() - 0.01, svi_results[i].y.max() + 0.01, 500)
+    w = SVISlice.w(grid_y, a, b, rho, m, sigma)
+    fig.add_scatter(x=grid_y, y=w, row=row, col=col, showlegend=False, line=dict(color="black"))
     fig.add_scatter(x=y_market, y=w_market, mode="markers", row=row, col=col, marker=dict(size=2, color="red"),
                     showlegend=False)
     fig.update_xaxes(title_text="y")

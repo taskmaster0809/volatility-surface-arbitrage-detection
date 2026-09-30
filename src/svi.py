@@ -74,21 +74,22 @@ class SVISlice:
         w_fit = self.w(self.y, a_fit, b_fit, rho_fit, m_fit, sigma_fit)
 
         return SVIResult(a_fit, b_fit, rho_fit, m_fit, sigma_fit, w_fit)
+    
+    @staticmethod
+    def g(y, a, b, rho, m, sigma):
+        w = SVISlice.w(y, a, b, rho, m, sigma)
+        dw = SVISlice.dw(y, b, rho, m, sigma)
+        d2w = SVISlice.d2w(y, b, m, sigma)
+        return (1 - y * dw / (2 * w)) ** 2 - ((dw ** 2) / 4) * (1 / w + 1 / 4) + d2w / 2
 
     @staticmethod
     def check_butterfly(svi: SVIResult):
-        def g(y, a, b, rho, m, sigma):
-            w = SVISlice.w(y, a, b, rho, m, sigma)
-            dw = SVISlice.dw(y, b, rho, m, sigma)
-            d2w = SVISlice.d2w(y, b, m, sigma)
-            return (1 - y * dw / (2 * w)) ** 2 - ((dw ** 2) / 4) * (1/w + 1/4) + d2w/2
-
         if svi.y is None:
             y_grid = np.linspace(-2, 2, 1000)
         else:
             y_grid = np.linspace(svi.y.min() - 0.1, svi.y.max() + 0.1, 1000)
 
-        g_vec = g(y_grid, svi.a, svi.b, svi.rho, svi.m, svi.sigma)
+        g_vec = SVISlice.g(y_grid, svi.a, svi.b, svi.rho, svi.m, svi.sigma)
         return np.all(g_vec >= 0), g_vec
 
     @staticmethod
